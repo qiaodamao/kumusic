@@ -176,10 +176,10 @@ var heo = {
       console.log("获取到自定义内容")
       var id = params.get("id")
       var server = params.get("server")
-      heoMusicPage.innerHTML = `<meting-js id="${id}" server="${server}" type="${playlistType}" mutex="true" preload="auto" order="random"></meting-js>`;
+      heoMusicPage.innerHTML = `<meting-js id="${id}" server="${server}" type="${playlistType}" mutex="true" preload="auto" order="list"></meting-js>`;
     } else {
       console.log("无自定义内容")
-      heoMusicPage.innerHTML = `<meting-js id="${userId}" server="${userServer}" type="${userType}" mutex="true" preload="auto" order="random"></meting-js>`;
+      heoMusicPage.innerHTML = `<meting-js id="${userId}" server="${userServer}" type="${userType}" mutex="true" preload="auto" order="list"></meting-js>`;
     }
   },
 
@@ -275,8 +275,45 @@ var heo = {
       document.title = `${audio.name} - ${audio.artist}`;
     }
   },
+  // 给控制图标添加鼠标悬停提示（title）
+  addIconTooltips: function (aplayer) {
+    const container = aplayer.container;
+    // 固定功能按钮
+    const fixed = {
+      '.aplayer-icon-back': '上一曲',
+      '.aplayer-icon-play': '播放/暂停',
+      '.aplayer-icon-forward': '下一曲',
+      '.aplayer-icon-menu': '播放列表',
+    };
+    for (const sel in fixed) {
+      const el = container.querySelector(sel);
+      if (el) el.title = fixed[sel];
+    }
+    const vol = container.querySelector('.aplayer-volume-wrap');
+    if (vol) vol.title = '音量';
+    // 动态状态按钮：跟随 APlayer 的 order/loop 状态更新文案
+    const orderMap = { list: '顺序播放', random: '随机播放' };
+    const loopMap = { all: '列表循环', one: '单曲循环', none: '不循环' };
+    const updateDynamic = () => {
+      const orderEl = container.querySelector('.aplayer-icon-order');
+      if (orderEl) orderEl.title = (aplayer.options && orderMap[aplayer.options.order]) || '播放顺序';
+      const loopEl = container.querySelector('.aplayer-icon-loop');
+      if (loopEl) loopEl.title = (aplayer.options && loopMap[aplayer.options.loop]) || '循环模式';
+    };
+    updateDynamic();
+    // 切换模式时 APlayer 会重新渲染 svg，监听变化以同步 title
+    if (typeof MutationObserver !== 'undefined') {
+      const obs = new MutationObserver(updateDynamic);
+      const orderEl = container.querySelector('.aplayer-icon-order');
+      const loopEl = container.querySelector('.aplayer-icon-loop');
+      if (orderEl) obs.observe(orderEl, { childList: true, subtree: true });
+      if (loopEl) obs.observe(loopEl, { childList: true, subtree: true });
+    }
+  },
   // 响应 MediaSession 标准媒体交互
   setupMediaSessionHandlers: function (aplayer) {
+    // 给控制图标添加鼠标悬停提示
+    heo.addIconTooltips(aplayer);
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => {
         aplayer.play();

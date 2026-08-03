@@ -228,9 +228,19 @@ async function getSongInfo(id) {
   return mapSongList(res);
 }
 
-// 获取播放 URL（直接使用网易云公开外链）
+// 获取播放 URL（weapi 接口获取真实播放地址）
 async function getSongUrl(id) {
-  return 'https://music.163.com/song/media/outer/url?id=' + id + '.mp3';
+  const res = await neteaseRequest(
+    'https://music.163.com/api/song/enhance/player/url',
+    { ids: [id], br: 320000 },
+    'weapi'
+  );
+  const item = res && res.data && res.data[0];
+  if (!item) return '';
+  // 优先使用 uf.url（备用地址），其次用 url
+  const url = (item.uf && item.uf.url) || item.url || '';
+  // 网易云返回的 http 链接需替换为 https
+  return url ? url.replace(/^http:/, 'https:') : '';
 }
 
 // 获取歌词
@@ -375,7 +385,8 @@ export default async function onRequest({ request }) {
       }
       case 'url':
         data = await getSongUrl(id);
-        return redirectResponse(data);
+        if (data && data.startsWith('http')) return redirectResponse(data);
+        return textResponse('no url', 404);
 
       case 'pic': {
         const songInfo = await getSongInfo(id);
