@@ -17,15 +17,6 @@ function base64Encode(buffer) {
   return btoa(binary);
 }
 
-function base64Decode(str) {
-  const binary = atob(str);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
 function hexEncode(buffer) {
   const bytes = new Uint8Array(buffer);
   let hex = '';
@@ -39,43 +30,19 @@ function strToBytes(str) {
   return new TextEncoder().encode(str);
 }
 
-// base64url 字符串转 BigInt
-function base64urlToBigInt(str) {
-  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) base64 += '=';
-  const bytes = base64Decode(base64);
-  let result = 0n;
-  for (let i = 0; i < bytes.length; i++) {
-    result = (result << 8n) | BigInt(bytes[i]);
-  }
-  return result;
-}
-
 // ==================== 加密模块 ====================
 
-const AES_IV = new Uint8Array([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10]);
+const AES_IV = strToBytes('0102030405060708');
 const PRESET_KEY = strToBytes('0CoJUm6Qyw8W8jud');
 const BASE62 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const NETEASE_PUBLIC_KEY_B64 = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7clFSs6sXqHauqKWqdtLkF2KexO40H1YTX8z2lSgBBOAxLsvaklV8k4cBFK9snQXE9/DDaFt6Rr7iVZMldczhC0JNgTz+SHXT6CBHuX3e9SdB1Ua44oncaTWz7OBGLbCiK45wIDAQAB';
 const NETEASE_ANONYMOUS_TOKEN = 'de91e1f8119d32e01cc73efcb82c0a30c9137e8d4f88dbf5e3d7bf3f28998f21add2bc8204eeee5e56c0bbb8743574b46ca2c10c35dc172199bef9bf4d60ecdeab066bb4dc737d1c3324751bcc9aaf44c3061cd18d77b7a0';
 
-let rsaKeyCache = null;
+// 网易云 RSA 公钥参数（固定公开值，硬编码以规避 EdgeOne 边缘函数 crypto.subtle.importKey 兼容性问题）
+const NETEASE_RSA_N = 157794750267131502212476817800345498121872783333389747424011531025366277535262539913701806290766479189477533597854989606803194253978660329941980786072432806427833685472618792592200595694346872951301770580765135349259590167490536138082469680638514416594216629258349130257685001248172188325316586707301643237607n;
+const NETEASE_RSA_E = 65537n;
 
-// 从 PEM 公钥提取 modulus 和 exponent（使用 Web Crypto API）
-async function getRsaKey() {
-  if (rsaKeyCache) return rsaKeyCache;
-  const derBytes = base64Decode(NETEASE_PUBLIC_KEY_B64);
-  const key = await crypto.subtle.importKey(
-    'spki', derBytes,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-1' },
-    true, ['verify']
-  );
-  const jwk = await crypto.subtle.exportKey('jwk', key);
-  rsaKeyCache = {
-    n: base64urlToBigInt(jwk.n),
-    e: base64urlToBigInt(jwk.e),
-  };
-  return rsaKeyCache;
+function getRsaKey() {
+  return { n: NETEASE_RSA_N, e: NETEASE_RSA_E };
 }
 
 // AES-128-CBC 加密（Web Crypto API）
@@ -140,7 +107,7 @@ async function weapiEncrypt(object) {
   for (let i = 0; i < 16; i++) {
     reversedKey[i] = secretKey[15 - i];
   }
-  const { n, e } = await getRsaKey();
+  const { n, e } = getRsaKey();
   const encSecKey = hexEncode(rsaNoPadding(reversedKey, n, e));
 
   return { params, encSecKey };
@@ -167,22 +134,17 @@ function nanoid() {
 
 // 发送网易云请求
 async function neteaseRequest(url, data, cryptoMode) {
-  // EdgeOne 边缘函数 fetch 对部分请求头有限制，仅保留网易云必需的头部
+  // 伪装为 iPhone 网易云客户端（weapi 接口要求客户端 Cookie/UA）
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
-    'Referer': 'https://music.163.com',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.30 Safari/537.36',
+    'Referer': 'https://music.163.com/',
+    'Cookie': 'appver=8.2.30; os=iPhone OS; osver=15.0; EVNSM=1.0.0; buildver=2206; channel=distribution; machineid=iPhone13.3',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 CloudMusic/0.1.1 NeteaseMusic/8.2.30',
+    'X-Real-IP': randomCnIp(),
+    'Accept': '*/*',
+    'Accept-Language': 'zh-CN,zh;q=0.8,gl;q=0.6,zh-TW;q=0.4',
+    'Connection': 'keep-alive',
   };
-
-  // Cookie 设置（匿名访问）
-  const cookie = {
-    __remember_me: true,
-    _ntes_nuid: nanoid(),
-    MUSIC_A: NETEASE_ANONYMOUS_TOKEN,
-  };
-  headers['Cookie'] = Object.keys(cookie)
-    .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(cookie[k]))
-    .join('; ');
 
   let bodyData = data;
   let reqUrl = url;
