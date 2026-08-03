@@ -1,8 +1,8 @@
 // Meting API 地址（部署在 Vercel 的 Node 版 meting-api）
 window.meting_api = 'https://meting-api-sage-eta.vercel.app/api?server=:server&type=:type&id=:id&r=:r';
 
-var userId = "8668419170";
-var userServer = "tencent";
+var userId = "2619366284";
+var userServer = "netease";
 var userType = "playlist";
 // var localMusic = [{
 //     name: '重生之我在异乡为异客',
