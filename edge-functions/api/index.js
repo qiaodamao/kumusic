@@ -1,9 +1,9 @@
 /**
- * Meting API - EdgeOne 边缘函数版
+ * Meting API - EdgeOne Pages Edge Functions 版
  * 基于 xizeyoupan/Meting-API 移植，仅支持网易云（netease）音源
  *
- * 部署：EdgeOne 控制台 → 边缘函数 → 新建函数 → 粘贴此代码 → 部署
- * 触发规则：HOST 等于你的域名，URL Path 前缀匹配 /api
+ * 文件路径 edge-functions/api/index.js → 路由 /api
+ * 访问示例：https://music.shijuefuhao.com/api?server=netease&type=playlist&id=21158650
  */
 
 // ==================== 辅助函数 ====================
@@ -327,7 +327,7 @@ function trimLyric(lyric) {
   return result.sort((a, b) => a.time - b.time);
 }
 
-// ==================== 路由处理 ====================
+// ==================== 响应辅助 ====================
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -360,7 +360,9 @@ function redirectResponse(url) {
   });
 }
 
-async function handleRequest(request) {
+// ==================== 主处理函数（EdgeOne Pages Edge Functions 入口） ====================
+
+export default async function onRequest({ request }) {
   const url = new URL(request.url);
   const params = url.searchParams;
 
@@ -429,9 +431,3 @@ async function handleRequest(request) {
     return jsonResponse({ error: String(e) }, 500);
   }
 }
-
-// ==================== 入口 ====================
-
-addEventListener('fetch', (event) => {
-  event.respondWith(handleRequest(event.request));
-});
