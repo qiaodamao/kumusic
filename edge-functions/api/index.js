@@ -167,12 +167,11 @@ function nanoid() {
 
 // 发送网易云请求
 async function neteaseRequest(url, data, cryptoMode) {
+  // EdgeOne 边缘函数 fetch 对部分请求头有限制，仅保留网易云必需的头部
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'Referer': 'https://music.163.com',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.30 Safari/537.36',
-    'X-Real-IP': randomCnIp(),
-    'X-Forwarded-For': randomCnIp(),
   };
 
   // Cookie 设置（匿名访问）
@@ -430,6 +429,13 @@ export default async function onRequest({ request }) {
         return jsonResponse({ error: '不支持的 type: ' + type }, 400);
     }
   } catch (e) {
-    return jsonResponse({ error: String(e) }, 500);
+    // 返回详细错误信息便于诊断（含 name/message/stack）
+    const errInfo = {
+      error: String(e),
+      name: e && e.name,
+      message: e && e.message,
+      stack: e && e.stack ? e.stack.split('\n').slice(0, 5).join('\n') : null,
+    };
+    return jsonResponse(errInfo, 500);
   }
 }
