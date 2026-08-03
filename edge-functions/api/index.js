@@ -195,7 +195,9 @@ async function neteaseRequest(url, data, cryptoMode) {
   }
   // 'api' 模式：不加密，直接发送
 
-  const body = new URLSearchParams(bodyData).toString();
+  // EdgeOne 运行时的 URLSearchParams 要求所有值为字符串，统一转换避免 TypeError
+  const bodyDataEntries = Object.entries(bodyData).map(([k, v]) => [k, String(v)]);
+  const body = new URLSearchParams(bodyDataEntries).toString();
   let res, count = 0;
   do {
     res = await fetch(reqUrl, { method: 'POST', headers, body });
