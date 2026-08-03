@@ -1,5 +1,5 @@
-// Meting API 地址（部署在 Vercel 的 Node 版 meting-api）
-window.meting_api = 'https://meting-api-sage-eta.vercel.app/api?server=:server&type=:type&id=:id&r=:r';
+// Meting API 地址（EdgeOne 边缘函数）
+window.meting_api = 'https://music.shijuefuhao.com/api?server=:server&type=:type&id=:id&r=:r';
 
 var userId = "21158650";
 var userServer = "netease";
