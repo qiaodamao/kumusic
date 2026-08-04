@@ -1,5 +1,44 @@
 @charset "UTF-8";
 
+/* ===== 载入遮罩 ===== */
+#kuMusic-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgb(13, 13, 13);
+  z-index: 9999;
+  transition: opacity 0.6s ease;
+}
+#kuMusic-loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.kuMusic-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: kuMusic-spin 0.8s linear infinite;
+}
+.kuMusic-loading-text {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+@keyframes kuMusic-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kuMusic-loading-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
 :root {
   --heo-white: #fff;
   --heo-white-op: rgba(255, 255, 255, 0.2);

@@ -134,18 +134,6 @@ function nanoid() {
 
 // 发送网易云请求
 async function neteaseRequest(url, data, cryptoMode) {
-  // 伪装为 iPhone 网易云客户端（weapi 接口要求客户端 Cookie/UA）
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Referer': 'https://music.163.com/',
-    'Cookie': 'appver=8.2.30; os=iPhone OS; osver=15.0; EVNSM=1.0.0; buildver=2206; channel=distribution; machineid=iPhone13.3',
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 CloudMusic/0.1.1 NeteaseMusic/8.2.30',
-    'X-Real-IP': randomCnIp(),
-    'Accept': '*/*',
-    'Accept-Language': 'zh-CN,zh;q=0.8,gl;q=0.6,zh-TW;q=0.4',
-    'Connection': 'keep-alive',
-  };
-
   let bodyData = data;
   let reqUrl = url;
 
@@ -161,11 +149,24 @@ async function neteaseRequest(url, data, cryptoMode) {
   const body = new URLSearchParams(bodyDataEntries).toString();
   let res, count = 0;
   do {
+    // 每次重试都重新生成 X-Real-IP，避免被网易云风控连续拦截
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': 'https://music.163.com/',
+      'Cookie': 'appver=8.2.30; os=iPhone OS; osver=15.0; EVNSM=1.0.0; buildver=2206; channel=distribution; machineid=iPhone13.3',
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 CloudMusic/0.1.1 NeteaseMusic/8.2.30',
+      'X-Real-IP': randomCnIp(),
+      'Accept': '*/*',
+      'Accept-Language': 'zh-CN,zh;q=0.8,gl;q=0.6,zh-TW;q=0.4',
+      'Connection': 'keep-alive',
+    };
     res = await fetch(reqUrl, { method: 'POST', headers, body });
     res = await res.json();
     count++;
+    if (res.code !== -460) break;
     if (count > 5) break;
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // 指数退避：100ms / 200ms / 400ms / 800ms / 1600ms
+    await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, count - 1)));
   } while (res.code === -460);
 
   return res;

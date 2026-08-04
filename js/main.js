@@ -246,7 +246,8 @@ var heo = {
   setMediaMetadata: function (aplayerObj, isSongPlaying) {
     const audio = aplayerObj.list.audios[aplayerObj.list.index]
     const coverUrl = audio.cover || './img/icon.webp';
-    const currentLrcContent = document.getElementById("kuMusic-page").querySelector(".aplayer-lrc-current").textContent;
+    const currentLrcEl = document.getElementById("kuMusic-page").querySelector(".aplayer-lrc-current");
+    const currentLrcContent = currentLrcEl ? currentLrcEl.textContent : '';
     let songName, songArtist;
 
     if ('mediaSession' in navigator) {
@@ -418,6 +419,8 @@ var heo = {
 
 //空格控制音乐
 document.addEventListener("keydown", function (event) {
+  // 播放器尚未就绪时忽略所有快捷键，避免 ReferenceError
+  if (typeof ap === 'undefined' || !ap) return;
   //暂停开启音乐
   if (event.code === "Space") {
     event.preventDefault();
@@ -456,6 +459,7 @@ document.addEventListener("keydown", function (event) {
 
 // 监听窗口大小变化
 window.addEventListener('resize', function() {
+  if (typeof ap === 'undefined' || !ap) return;
   if (window.innerWidth > 768) {
     ap.list.show();
   } else {
@@ -466,4 +470,37 @@ window.addEventListener('resize', function() {
 
 // 调用初始化
 heo.init();
+
+// ===== 载入遮罩：APlayer 渲染完成后淡出 =====
+(function () {
+  var loadingEl = document.getElementById('kuMusic-loading');
+  if (!loadingEl) return;
+
+  var hidden = false;
+  function hideLoading() {
+    if (hidden) return;
+    hidden = true;
+    loadingEl.classList.add('hidden');
+    setTimeout(function () {
+      if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+    }, 700);
+  }
+
+  // 检测 APlayer 是否渲染完成
+  var checkTimer = setInterval(function () {
+    if (window.ap && document.querySelector('#kuMusic-page .aplayer')) {
+      clearInterval(checkTimer);
+      clearTimeout(fallback);
+      // 略微延迟以让首帧绘制完成
+      setTimeout(hideLoading, 100);
+    }
+  }, 150);
+
+  // 兜底：15 秒后强制隐藏（避免 API 卡死时永久卡 loading）
+  var fallback = setTimeout(function () {
+    clearInterval(checkTimer);
+    hideLoading();
+  }, 15000);
+})();
+
 
