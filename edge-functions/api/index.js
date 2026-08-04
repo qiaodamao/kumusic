@@ -196,23 +196,26 @@ async function getPlaylist(id) {
   );
 
   const trackIds = res.playlist.trackIds;
+  // 网易云 /api/v3/song/detail 单次请求上限 200 首，分批获取全部歌曲
   const limit = 200;
-  const offset = 0;
+  const targetIds = trackIds;
 
-  // 第二步：获取歌曲详情（weapi 加密）
-  const idsData = {
-    c: '[' + trackIds.slice(offset, offset + limit)
-      .map(item => '{"id":' + item.id + '}')
-      .join(',') + ']',
-  };
+  // 第二步：分批获取歌曲详情（weapi 加密），逐批累加到 songList
+  let songList = [];
+  for (let offset = 0; offset < targetIds.length; offset += limit) {
+    const batch = targetIds.slice(offset, offset + limit);
+    const idsData = {
+      c: '[' + batch.map(item => '{"id":' + item.id + '}').join(',') + ']',
+    };
+    const batchRes = await neteaseRequest(
+      'https://music.163.com/api/v3/song/detail',
+      idsData,
+      'weapi'
+    );
+    songList = songList.concat(mapSongList(batchRes));
+  }
 
-  res = await neteaseRequest(
-    'https://music.163.com/api/v3/song/detail',
-    idsData,
-    'weapi'
-  );
-
-  return mapSongList(res);
+  return songList;
 }
 
 // 获取单曲信息
